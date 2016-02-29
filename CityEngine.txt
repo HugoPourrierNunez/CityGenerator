@@ -1,0 +1,135 @@
+# import des commandes blender dans python
+import  bpy
+import sys
+
+sys.path.append("D:/PC/Documents/Blender")
+from utils.ShapeGrammarTools import * 
+from utils.MaterialTools import * 
+from math import *
+
+class Point:
+    def __init__(self,x=0,y=0,z=0):
+        self.x=x
+        self.y=y
+        self.z=z
+    def print(self):
+        print("x=",self.x," y=",self.y," z=",self.z)
+        
+    def cp(self):
+        return (Point(self.x,self.y,self.z))
+
+class Plate:
+    MIN=1
+    
+    def __init__(self, p1=Point(),p2=Point(),p3=Point(),p4=Point()):
+        self.points = [p1,p2,p3,p4]
+        self.sens=True
+    
+    def setPoint(self,index,p):
+        if index>-1 and index<4:
+            self.points[index] = p
+            
+    def divide(self,espace=0):
+        #divide
+        newPlate = Plate()
+        newPlate.points = self.points[:]
+        p = []
+        if self.sens:
+            """if abs(self.points[0].x-self.points[1].x)<Plate.MIN or abs(self.points[2].x-self.points[3].x)<Plate.MIN:
+                self.sens = not self.sens
+                return [self]"""
+            #on prend au hasard un point sur chaque bord
+            print("true")
+            for i in range(0,3,2):
+                p1=self.points[i].cp()
+                p2=self.points[i+1].cp()
+                if p1.x>p2.x:
+                    p1,p2=p2,p1
+                print("i=",i)
+                a = (p1.y-p2.y)/(p1.x-p2.x)
+                print("a=",a)
+                d = p1.y-a*p1.x
+                print("d=",d)
+                
+                rx = 10#random.uniform(p1.x+espace/2,p2.x-espace/2)
+                
+                ry=a*rx+d
+                #bpy.ops.mesh.primitive_plane_add(location=(rx,ry,0))
+                delta=(2*rx+2*-a*(d-ry))**2-4*(a**2+1)*(rx**2+(d-ry)**2-(espace/2)**2)
+                print("delta=",delta)
+                x1=((2*rx+2*-a*(d-ry))-sqrt(delta))/(2*(a**2+1))
+                x2=((2*rx+2*-a*(d-ry))+sqrt(delta))/(2*(a**2+1))
+                
+                p.append(Point(x1, a*x1+d,0))
+                p.append(Point(x2, a*x2+d,0))
+            
+            self.points[1]=p[0]
+            self.points[3]=p[2]
+            
+            newPlate.points[0]=p[1]
+            newPlate.points[2]=p[3]
+        
+        else:
+            print("false")
+            """if abs(self.points[0].y-self.points[2].y)<Plate.MIN or abs(self.points[1].y-self.points[3].y)<Plate.MIN:
+                self.sens = not self.sens
+                return [self]"""
+            for i in range(0,2):
+                print("p1=",self.points[i].print())
+                print("p2=",self.points[i+2].print())
+                a = (self.points[i].x-self.points[i+2].x)/(self.points[i].y-self.points[i+2].y)
+                print("a=",a)
+                d = self.points[i].x-a*self.points[i].y
+                print("d=",d)
+                if self.points[i].y>self.points[i+2].y:
+                    rx = random.uniform(self.points[i+2].y+espace/2,self.points[i].y-espace/2)
+                else :
+                    rx = random.uniform(self.points[i].y+espace/2,self.points[i+2].y-espace/2)
+                ry=a*rx+d
+                delta=(2*rx+2*-a*(d-ry))**2-4*(a**2+1)*(rx**2+(d-ry)**2-(espace/2)**2)
+                print("delta=",delta)
+                x1=((2*rx+2*-a*(d-ry))-sqrt(delta))/(2*(a**2+1))
+                x2=((2*rx+2*-a*(d-ry))+sqrt(delta))/(2*(a**2+1))
+                p.append(Point(a*x1+d,x1,0))
+                p.append(Point(a*x2+d,x2,0))
+                
+            self.points[2]=p[0]
+            self.points[3]=p[2]
+            
+            newPlate.points[0]=p[1]
+            newPlate.points[1]=p[3]
+        
+        self.sens=not self.sens
+        newPlate.sens=self.sens
+        
+        return [self,newPlate]
+    
+    def draw(self):
+        bpy.ops.mesh.primitive_plane_add(location=(0,0,0))
+        obj=bpy.context.object
+        for i in range(0,4):
+            obj.data.vertices[i].co.x=self.points[i].x
+            obj.data.vertices[i].co.y=self.points[i].y
+            obj.data.vertices[i].co.z=self.points[i].z
+
+class Map2D:
+    
+    def __init__(self):
+        self.plates = []
+        
+    def perform(self, n=1):
+        self.plates = [Plate(Point(0,-10,0),Point(20,0,0),Point(0,20,0),Point(20,20,0))]
+        #self.plates[0].draw()
+        for i in range(0,n):
+            newPlates = []
+            for j in range(0,len(self.plates)):
+                newPlates+=self.plates[j].divide(.1)
+            self.plates=newPlates
+        for i in range(0,len(self.plates)):
+            self.plates[i].draw()
+
+
+print('///////////')
+m = Map2D()
+m.perform(2)
+
