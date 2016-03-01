@@ -1,10 +1,12 @@
 # import des commandes blender dans python
-import  bpy
-import sys
 
-sys.path.append("D:/PC/Documents/Blender")
+"""sys.path.append("D:/PC/Documents/Blender")
 from utils.ShapeGrammarTools import * 
-from utils.MaterialTools import * 
+from utils.MaterialTools import * """
+
+import  bpy
+import random
+import functools
 from math import *
 
 class Point:
