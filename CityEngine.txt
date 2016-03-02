@@ -8,6 +8,32 @@ import  bpy
 import random
 import functools
 from math import *
+import os
+
+#Création textures
+
+realpath = os.path.expanduser("D:/PC/Documents/GitHub/CityGenerator/Textures/road.jpg")
+try:
+    img = bpy.data.images.load(realpath)
+except:
+    raise NameError("Cannot load image %s" % realpath)
+    
+roadImg = bpy.data.textures.new('ImageText', type = 'IMAGE')
+roadImg.image = img
+
+roadMat = bpy.data.materials.new('TexMat')
+roadMat.diffuse_shader = 'LAMBERT'  
+
+mtex = roadMat.texture_slots.add()
+mtex.texture = roadImg
+mtex.texture_coords = 'UV'
+mtex.use_map_color_diffuse = True 
+mtex.use_map_color_emission = True
+mtex.emission_color_factor = 0.5
+mtex.use_map_density = True 
+mtex.mapping = 'FLAT' 
+
+#
 
 def makeMaterial(name, diffuse, specular, alpha):
     mat = bpy.data.materials.new(name)
@@ -126,7 +152,10 @@ class Droite:
         if self.p1.x>self.p2.x:
             self.p1,self.p2=self.p2,self.p1
         self.vector = Vector.fromPoint(self.p1,self.p2)
-        self.a=(self.p1.y-self.p2.y)/(self.p1.x-self.p2.x)
+        if self.p1.x-self.p2.x==0:
+            self.a=0
+        else :
+            self.a=(self.p1.y-self.p2.y)/(self.p1.x-self.p2.x)
         self.d=self.p1.y-self.a*self.p1.x
         
         
@@ -158,13 +187,31 @@ class Droite:
     def norme(self):
         return self.p1.norme(self.p2)
     
+    def intersect(self,d):
+        u=((self.p2.x-self.p1.x)*(d.p1.y-self.p1.y)-(d.p1.x-self.p1.x)*(self.p2.y-self.p1.y))/((d.p2.x-d.p1.x)*(self.p2.y-self.p1.y)-(self.p2.x-self.p1.x)*(d.p2.y-d.p1.y))
+        
+        if u<0 or u>1:
+            return False
+        p = Point()
+        p.x=d.p1.x+u*(d.p2.x-d.p1.x)
+        p.y=d.p1.y+u*(d.p2.y-d.p1.y)
+        return p
+    
+    def milieu(self):
+        x = self.p1.x+(abs(self.p1.x-self.p2.x)/2)
+        y = self.a*x+self.d
+        
+        return Point(x,y,0)
+    
 
 class Plate:
     MIN=1
-    
-    def __init__(self, p1=Point(),p2=Point(),p3=Point(),p4=Point()):
+    NORMAL=0
+    ROAD=2
+    def __init__(self, p1=Point(),p2=Point(),p3=Point(),p4=Point(),type=NORMAL):
         self.points = [p1,p2,p3,p4]
         self.sens=True
+        self.type=type
     
     def setPoint(self,index,p):
         if index>-1 and index<4:
@@ -173,13 +220,15 @@ class Plate:
     def divide(self,espace=0):
         #divide
         newPlate = Plate()
+        road = Plate()#type=Plate.ROAD)
         newPlate.points = self.points[:]
         p = []
         dr = []
         rp=[]
-        if self.aire()<4:
+        if self.aire()<10:
             print("test aire")
-            return [self]
+            return [[self],False]
+        
         if self.sens:
             dr.append(Droite(self.points[0].cp(),self.points[1].cp()))
             dr.append(Droite(self.points[2].cp(),self.points[3].cp()))
@@ -198,10 +247,9 @@ class Plate:
             j=1
             if i==1: j=0
             
-            #norme = dr[j].normePoint(rp[i])
             if dr[i].norme()<espace*2 or dr[j].norme()<espace*2 :
                 print("to small")
-                return [self]
+                return [[self],False]
             
             angle=sin(coupe.vector.angle2DVector(dr[i].vector))
             ecart = espace/angle
@@ -217,25 +265,47 @@ class Plate:
             newPlate.points[0]=p[1]
             newPlate.points[2]=p[3]
             
+            """road.points[1]=p[0]
+            road.points[3]=p[2]
+            road.points[0]=p[1]
+            road.points[2]=p[3]"""
+            
+            for i in range(0,4):
+                road.points[i]=p[i]
         else:
             self.points[2]=p[0]
             self.points[3]=p[2]
             newPlate.points[0]=p[1]
             newPlate.points[1]=p[3]
+            
+            road.points[0]=p[2]
+            road.points[1]=p[3]
+            road.points[2]=p[0]
+            road.points[3]=p[1]
+            
+        
         
         self.sens=not self.sens
         newPlate.sens=self.sens
         
-        return [self,newPlate]
+        return [[self,newPlate],[road]]
     
     def draw(self):
         bpy.ops.mesh.primitive_plane_add(location=(0,0,0))
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.uv.smart_project()
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
         obj=bpy.context.object
+        if self.type==Plate.ROAD:
+            setMaterial(obj,roadMat)
+            
         for i in range(0,4):
             obj.data.vertices[i].co.x=self.points[i].x
             obj.data.vertices[i].co.y=self.points[i].y
             obj.data.vertices[i].co.z=self.points[i].z
-            
+        return obj
+        
     def aire(self):
         d=Droite(self.points[0],self.points[3])
         p1 = d.projPoint(self.points[1])
@@ -255,27 +325,67 @@ class Plate:
             a4=-a4
 
         return a1+a2+a3+a4
+    
+    def to3D(self):
+        d1 = Droite(self.points[2],self.points[0])
+        d2 = Droite(self.points[2],self.points[3])
+        d3 = Droite(self.points[3],self.points[1])
+        d4 = Droite(self.points[0],self.points[1])
+        p1=d1.milieu()
+        p2=d2.milieu()
+        p3=d3.milieu()
+        p4=d4.milieu()
+        d5 = Droite(p1,p3)
+        d6 = Droite(p2,p4)
+        p=d5.intersect(d6)
+        if p!=False:
+            
+            p.z+=.05
+            bpy.ops.mesh.primitive_cube_add(radius=.3,location=p.tuple())
+            obj=bpy.context.object
+            
+            angle = d4.vector.angle2D()
+            obj.rotation_euler[2]=angle
+            
+            
+            
+            
 
 class Map2D:
     
     def __init__(self):
         self.plates = []
+        self.road = []
         
     def perform(self, n=1):
         self.plates = [Plate(Point(0,0,0),Point(20,0,0),Point(0,20,0),Point(20,20,0))]
-        print(self.plates[0].aire())
         for i in range(0,n):
             newPlates = []
             for j in range(0,len(self.plates)):
-                newPlates+=self.plates[j].divide(.5)
+                res = self.plates[j].divide(.2)
+                newPlates+=res[0]
+                if res[1]!=False:
+                    self.road+=res[1]
             self.plates=newPlates
         for i in range(0,len(self.plates)):
             self.plates[i].draw()
-
+        for i in range(0,len(self.road)):
+            self.road[i].draw()
+            
+    def to3D(self):
+        for p in self.plates:
+            p.to3D()
+        
 
 print('///////////')
 m = Map2D()
-m.perform(20)
+m.perform(5)
 
+m.to3D()
+
+
+
+
+#setMaterial(obj,mat)
 
 
