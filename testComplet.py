@@ -8,9 +8,8 @@ from math import *
 def run(theObj, texture):
     # Load image file. Change here if the snippet folder is 
     # not located in you home directory.
-    realpath = os.path.expanduser(texture)
     try:
-        img = bpy.data.images.load(realpath)
+        img = bpy.data.images.load(texture)
     except:
         raise NameError("Cannot load image %s" % realpath)
  
@@ -70,9 +69,10 @@ def run(theObj, texture):
     mtex.blend_type = 'MULTIPLY'
  
     # Assign UVs to object
-    theObj.mode_set(mode='EDIT')
-    theObj.uv.smart_project()
-    theObj.object.mode_set(mode='OBJECT')
+    bpy.context.scene.objects.active = theObj
+    bpy.ops.object.mode_set(mode='EDIT', toggle=False)
+    bpy.ops.uv.smart_project()
+    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
  
     # Add material to current object
     ob = bpy.context.object
@@ -83,16 +83,155 @@ def run(theObj, texture):
 	
 """ ///////////////////// PLAN 2D \\\\\\\\\\\\\\\\\\\\ """
 
+def makeMaterial(name, diffuse, specular, alpha):
+    mat = bpy.data.materials.new(name)
+    mat.diffuse_color = diffuse
+    mat.diffuse_shader = 'LAMBERT' 
+    mat.diffuse_intensity = 1.0 
+    mat.specular_color = specular
+    mat.specular_shader = 'COOKTORR'
+    mat.specular_intensity = 0.5
+    mat.alpha = alpha
+    mat.ambient = 1
+    return mat
+ 
+def setMaterial(ob, mat):
+    me = ob.data
+    me.materials.append(mat)
+
+class Vector:
+
+    def __init__(self,x=0,y=0,z=0):
+        self.x=x
+        self.y=y
+        self.z=z
+
+    def fromPoint(p1,p2,norm=False):
+        x=p2.x-p1.x
+        y=p2.y-p1.y
+        z=p2.z-p1.z
+        if norm:
+            n=p1.norme(p2)
+            x/=n
+            y/=n
+            z/=n
+        return Vector(x,y,z)
+
+    def myprint(self):
+        print("x=",self.x," y=",self.y," z=",self.z)
+
+    def __add__(self, vB):
+        return Vector(self.x+vB.x,self.y+vB.y,self.z+vB.z) 
+    
+    def __sub__(self, vB):
+        return Vector(self.x-vB.x,self.y-vB.y,self.z-vB.z) 
+    
+    def __mul__(self, c): 
+        if isinstance(c,Vector):
+            return  self.x*c.x+self.y*c.y+self.z*c.z  
+        else:
+            return Vector(c*self.x,c*self.y,c*self.z) 
+        
+    def __div__(self, c):
+        return Vector(self.x/c, self.y/c,self.z/c)
+    
+    def angle2D(self):
+        nb = self.y/self.x
+        if nb<0: return (atan(nb))+3.14159
+        else: return (atan(nb))
+        
+    def angle2DVector(self,v):
+        return abs(self.angle2D()-v.angle2D())
+
 class Point:
     def __init__(self,x=0,y=0,z=0):
         self.x=x
         self.y=y
         self.z=z
+        
     def print(self):
         print("x=",self.x," y=",self.y," z=",self.z)
         
-    def cp(self):
-        return (Point(self.x,self.y,self.z))
+    def cp(self,inv=False):
+        if inv:
+            return (Point(self.y,self.x,self.z))
+        else:
+            return (Point(self.x,self.y,self.z))
+        
+    def norme(self,p):
+        return sqrt((p.x-self.x)**2+(p.y-self.y)**2+(p.z-self.z)**2)
+    
+    def tuple(self):
+        return (self.x,self.y,self.z)
+    
+class Cercle:
+    
+    def __init__(self,p,r):
+        self.point=p
+        self.rayon=r
+        
+    def intersectionDroite(self,dr):
+        
+        a=dr.a**2+1
+        b=2*self.point.x+2*-dr.a*(dr.d-self.point.y)
+        c=(self.point.x)**2+(dr.d-self.point.y)**2-self.rayon**2
+        
+        delta=b**2-4*a*c
+        if delta<=0:
+            return False
+        rac=sqrt(delta)
+        
+        p1=Point((b-rac)/(2*a),0,0)
+        p2=Point((b+rac)/(2*a),0,0)
+        
+        if p2.x>p1.x:
+            p1=p2
+            
+        p1.y=dr.getY(p1.x)
+        
+        return p1
+        
+class Droite:
+    
+    def __init__(self,p1,p2):
+        
+        self.p1=p1
+        self.p2=p2
+        if self.p1.x>self.p2.x:
+            self.p1,self.p2=self.p2,self.p1
+        self.vector = Vector.fromPoint(self.p1,self.p2)
+        self.a=(self.p1.y-self.p2.y)/(self.p1.x-self.p2.x)
+        self.d=self.p1.y-self.a*self.p1.x
+        
+        
+    def getY(self,x):
+        return self.a*x+self.d
+    
+    def normePoint(self,p):
+        X=-(self.p2.x-self.p1.x)
+        Y=-(self.p2.y-self.p1.y)
+        Z=p.x*-X+p.y*-Y
+        
+        proj=Point()
+        proj.x=-(self.d*Y+Z)/(X+Y*self.a)
+        proj.y=self.a*proj.x+self.d
+        
+        return p.norme(proj)
+   
+    def projPoint(self,p):
+        X=-(self.p2.x-self.p1.x)
+        Y=-(self.p2.y-self.p1.y)
+        Z=p.x*-X+p.y*-Y
+        
+        proj=Point()
+        proj.x=-(self.d*Y+Z)/(X+Y*self.a)
+        proj.y=self.a*proj.x+self.d
+        
+        return proj
+    
+    def norme(self):
+        return self.p1.norme(self.p2)
+    
 
 class Plate:
     MIN=1
@@ -110,68 +249,51 @@ class Plate:
         newPlate = Plate()
         newPlate.points = self.points[:]
         p = []
+        dr = []
+        rp=[]
+        if self.aire()<4:
+            print("test aire")
+            return [self]
         if self.sens:
-            """if abs(self.points[0].x-self.points[1].x)<Plate.MIN or abs(self.points[2].x-self.points[3].x)<Plate.MIN:
-                self.sens = not self.sens
-                return [self]"""
-            #on prend au hasard un point sur chaque bord
-            print("true")
-            for i in range(0,3,2):
-                p1=self.points[i].cp()
-                p2=self.points[i+1].cp()
-                if p1.x>p2.x:
-                    p1,p2=p2,p1
-                print("i=",i)
-                a = (p1.y-p2.y)/(p1.x-p2.x)
-                print("a=",a)
-                d = p1.y-a*p1.x
-                print("d=",d)
+            dr.append(Droite(self.points[0].cp(),self.points[1].cp()))
+            dr.append(Droite(self.points[2].cp(),self.points[3].cp()))
+        else:
+            dr.append(Droite(self.points[0].cp(True),self.points[2].cp(True)))
+            dr.append(Droite(self.points[1].cp(True),self.points[3].cp(True)))
+        
+        for i in range(0,2):
+            r = Point(random.uniform(dr[i].p1.x+espace,dr[i].p2.x-(espace*2)),0,0)
+            r.y=dr[i].getY(r.x)
+            rp.append(r)
                 
-                rx = 10#random.uniform(p1.x+espace/2,p2.x-espace/2)
-                
-                ry=a*rx+d
-                #bpy.ops.mesh.primitive_plane_add(location=(rx,ry,0))
-                delta=(2*rx+2*-a*(d-ry))**2-4*(a**2+1)*(rx**2+(d-ry)**2-(espace/2)**2)
-                print("delta=",delta)
-                x1=((2*rx+2*-a*(d-ry))-sqrt(delta))/(2*(a**2+1))
-                x2=((2*rx+2*-a*(d-ry))+sqrt(delta))/(2*(a**2+1))
-                
-                p.append(Point(x1, a*x1+d,0))
-                p.append(Point(x2, a*x2+d,0))
+        coupe=Droite(rp[0],rp[1])
+        
+        for i in range(0,2):
+            j=1
+            if i==1: j=0
+            
+            #norme = dr[j].normePoint(rp[i])
+            if dr[i].norme()<espace*2 or dr[j].norme()<espace*2 :
+                print("to small")
+                return [self]
+            
+            angle=sin(coupe.vector.angle2DVector(dr[i].vector))
+            ecart = espace/angle
+            c = Cercle(rp[i],ecart)
+            intersect = c.intersectionDroite(dr[i])
+            p.append(rp[i].cp(not self.sens))
+            p.append(intersect.cp(not self.sens))
+            
+        if self.sens:
             
             self.points[1]=p[0]
             self.points[3]=p[2]
-            
             newPlate.points[0]=p[1]
             newPlate.points[2]=p[3]
-        
+            
         else:
-            print("false")
-            """if abs(self.points[0].y-self.points[2].y)<Plate.MIN or abs(self.points[1].y-self.points[3].y)<Plate.MIN:
-                self.sens = not self.sens
-                return [self]"""
-            for i in range(0,2):
-                print("p1=",self.points[i].print())
-                print("p2=",self.points[i+2].print())
-                a = (self.points[i].x-self.points[i+2].x)/(self.points[i].y-self.points[i+2].y)
-                print("a=",a)
-                d = self.points[i].x-a*self.points[i].y
-                print("d=",d)
-                if self.points[i].y>self.points[i+2].y:
-                    rx = random.uniform(self.points[i+2].y+espace/2,self.points[i].y-espace/2)
-                else :
-                    rx = random.uniform(self.points[i].y+espace/2,self.points[i+2].y-espace/2)
-                ry=a*rx+d
-                delta=(2*rx+2*-a*(d-ry))**2-4*(a**2+1)*(rx**2+(d-ry)**2-(espace/2)**2)
-                print("delta=",delta)
-                x1=((2*rx+2*-a*(d-ry))-sqrt(delta))/(2*(a**2+1))
-                x2=((2*rx+2*-a*(d-ry))+sqrt(delta))/(2*(a**2+1))
-                p.append(Point(a*x1+d,x1,0))
-                p.append(Point(a*x2+d,x2,0))
-                
             self.points[2]=p[0]
             self.points[3]=p[2]
-            
             newPlate.points[0]=p[1]
             newPlate.points[1]=p[3]
         
@@ -187,6 +309,26 @@ class Plate:
             obj.data.vertices[i].co.x=self.points[i].x
             obj.data.vertices[i].co.y=self.points[i].y
             obj.data.vertices[i].co.z=self.points[i].z
+            
+    def aire(self):
+        d=Droite(self.points[0],self.points[3])
+        p1 = d.projPoint(self.points[1])
+        p2= d.projPoint(self.points[2])
+        a1 = p1.norme(self.points[1])*p1.norme(self.points[0])/2
+        a2= p1.norme(self.points[1])*p1.norme(self.points[3])/2
+        a3 = p2.norme(self.points[2])*p2.norme(self.points[0])/2
+        a4= p2.norme(self.points[2])*p2.norme(self.points[3])/2
+        
+        if p1.x<self.points[0].x:
+            a1=-a1
+        if p1.x>self.points[3].x:
+            a2=-a2
+        if p2.x<self.points[0].x:
+            a3=-a3
+        if p2.x>self.points[3].x:
+            a4=-a4
+
+        return a1+a2+a3+a4
 
 class Map2D:
     
@@ -194,12 +336,12 @@ class Map2D:
         self.plates = []
         
     def perform(self, n=1):
-        self.plates = [Plate(Point(0,-10,0),Point(20,0,0),Point(0,20,0),Point(20,20,0))]
-        #self.plates[0].draw()
+        self.plates = [Plate(Point(0,0,0),Point(20,0,0),Point(0,20,0),Point(20,20,0))]
+        print(self.plates[0].aire())
         for i in range(0,n):
             newPlates = []
             for j in range(0,len(self.plates)):
-                newPlates+=self.plates[j].divide(.1)
+                newPlates+=self.plates[j].divide(.5)
             self.plates=newPlates
         for i in range(0,len(self.plates)):
             self.plates[i].draw()
@@ -223,7 +365,7 @@ class SimpleOperator(bpy.types.Operator):
     
     def execute(self,context):
         m = Map2D()
-        m.perform(5)
+        m.perform(20)
         print("Hello WOrld")
         
         
