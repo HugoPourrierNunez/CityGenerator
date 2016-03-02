@@ -49,7 +49,7 @@ class CityGenerator(View3dPanel,bpy.types.Panel):
         sub = col.column(align=True)
         scene = context.scene
         rd = scene.render
-        sub.label(text = "/// Parameters : \\\\\\")
+        sub.label(text = "// Parameters : \\")
         sub.label(text = "")
         sub.label(text = "Dimensions:")
         sub.prop(rd, "resolution_x", text="X")
