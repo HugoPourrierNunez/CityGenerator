@@ -220,7 +220,7 @@ class Plate:
     def divide(self,espace=0):
         #divide
         newPlate = Plate()
-        road = Plate()#type=Plate.ROAD)
+        road = Plate(type=Plate.ROAD)
         newPlate.points = self.points[:]
         p = []
         dr = []
