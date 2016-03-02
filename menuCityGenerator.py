@@ -38,36 +38,31 @@ class CityGenerator(View3dPanel,bpy.types.Panel):
     
     def draw(self,context):
         layout=self.layout
-        layout.operator(operator = "dh.simple_opt",text = "Create City",icon = "OUTLINER_DATA_LAMP")
+        layout.operator(operator = "dh.simple_opt",text = "Create City",icon = "RADIO")
         self.layout.split()
         self.layout.split()
         self.layout.split()
         
         
+
         col=layout.column(align = True)
-        
-        col.label(text = "Parameters")
+        sub = col.column(align=True)
+        scene = context.scene
+        rd = scene.render
+        sub.label(text = "/// Parameters : \\\\\\")
+        sub.label(text = "")
+        sub.label(text = "Dimensions:")
+        sub.prop(rd, "resolution_x", text="X")
+        sub.prop(rd, "resolution_y", text="Y")
+        sub.label(text="")
+        sub.label(text="Streets :")
+        sub.prop(scene, "frame_step")
         col.operator(operator = "mesh.primitive_cube_add",text = "Cube",icon = "MESH_CUBE")
         col.operator(operator = "mesh.primitive_cone_add",text = "Cone",icon = "MESH_CONE")
         row=col.row(align = True)
         row.operator(operator = "mesh.primitive_monkey_add",text = "Monkey",icon = "MESH_MONKEY")
         row.operator(operator = "mesh.primitive_torus_add",text = "Torus",icon = "MESH_TORUS")
         col.operator(operator = "mesh.primitive_cylinder_add",text = "Cylinder",icon = "MESH_CYLINDER")
-
-
-"""
-class PanelB(View3dPanel,bpy.types.Panel):
-    bl_label="Panel B"
-    
-    def draw(self,context):
-        layout=self.layout
-        layout=layout.box()
-        layout.label(text = "object list",icon = "SORTALPHA")
-        col=layout.column(align = False)
-        col.prop(data = context.scene,property = "myEnumitem")
-        col.prop(data = context.scene,property = "myEnumitem_obj")
-"""        
-               
 
 
 bpy.types.Scene.myEnumitem=bpy.props.EnumProperty(name ="Obj Type",items=item_type_lst)
