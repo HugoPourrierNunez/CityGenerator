@@ -5,7 +5,7 @@ from math import *
 
 """ TEXTURING """
 
-def run(theObj, texture):
+def applyTexture(theObj, texture):
     # Load image file. Change here if the snippet folder is 
     # not located in you home directory.
     try:
@@ -336,7 +336,7 @@ class Map2D:
         self.plates = []
         
     def perform(self, n=1):
-        self.plates = [Plate(Point(0,0,0),Point(20,0,0),Point(0,20,0),Point(20,20,0))]
+        self.plates = [Plate(Point(0,0,0),Point(bpy.context.scene.render.resolution_x,0,0),Point(0,bpy.context.scene.render.resolution_y,0),Point(bpy.context.scene.render.resolution_x,bpy.context.scene.render.resolution_y,0))]
         print(self.plates[0].aire())
         for i in range(0,n):
             newPlates = []
@@ -365,7 +365,7 @@ class SimpleOperator(bpy.types.Operator):
     
     def execute(self,context):
         m = Map2D()
-        m.perform(20)
+        m.perform(bpy.context.scene.frame_step)
         print("Hello WOrld")
         
         
@@ -407,10 +407,10 @@ if __name__=='__main__':
  
 if __name__ == "__main__":
     
-    pathTexture = 'C:/Users/User/Documents/GitHub/CityGenerator/Texture/gratteciel.jpg'
+    buildingTexture = 'C:/Users/User/Documents/GitHub/CityGenerator/Texture/gratteciel.jpg'
     bpy.ops.mesh.primitive_cube_add(location=(0,0,0))
     myObj = bpy.context.object
-    run(myObj, pathTexture)
+    applyTexture(myObj, buildingTexture)
 	
 	
 	
