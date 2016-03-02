@@ -5,7 +5,7 @@ from math import *
 
 """ TEXTURING """
 
-def run(obj, texture):
+def run(theObj, texture):
     # Load image file. Change here if the snippet folder is 
     # not located in you home directory.
     realpath = os.path.expanduser(texture)
@@ -70,9 +70,9 @@ def run(obj, texture):
     mtex.blend_type = 'MULTIPLY'
  
     # Assign UVs to object
-    obj.object.mode_set(mode='EDIT')
-    obj.uv.smart_project()
-    obj.object.mode_set(mode='OBJECT')
+    theObj.mode_set(mode='EDIT')
+    theObj.uv.smart_project()
+    theObj.object.mode_set(mode='OBJECT')
  
     # Add material to current object
     ob = bpy.context.object
@@ -220,9 +220,10 @@ class SimpleOperator(bpy.types.Operator):
     bl_idname="dh.simple_opt"
     bl_label="Simple Operator"
     
+    
     def execute(self,context):
-        bpy.ops.mesh.primitive_cube_add()
-        bpy.ops.mesh.primitive_cone_add()
+        m = Map2D()
+        m.perform(5)
         print("Hello WOrld")
         
         
@@ -241,11 +242,7 @@ class CityGeneratorPanel(View3dPanel,bpy.types.Panel):
     def draw(self,context):
         layout=self.layout
         layout.operator(operator = "dh.simple_opt",text = "Create City",icon = "RADIO")
-        self.layout.split()
-        self.layout.split()
-        self.layout.split()
-        
-        
+        self.layout.split()        
 
         col=layout.column(align = True)
         sub = col.column(align=True)
@@ -259,12 +256,6 @@ class CityGeneratorPanel(View3dPanel,bpy.types.Panel):
         sub.label(text="")
         sub.label(text="Streets :")
         sub.prop(scene, "frame_step")
-        col.operator(operator = "mesh.primitive_cube_add",text = "Cube",icon = "MESH_CUBE")
-        col.operator(operator = "mesh.primitive_cone_add",text = "Cone",icon = "MESH_CONE")
-        row=col.row(align = True)
-        row.operator(operator = "mesh.primitive_monkey_add",text = "Monkey",icon = "MESH_MONKEY")
-        row.operator(operator = "mesh.primitive_torus_add",text = "Torus",icon = "MESH_TORUS")
-        col.operator(operator = "mesh.primitive_cylinder_add",text = "Cylinder",icon = "MESH_CYLINDER")
 
 bpy.types.Scene.myEnumitem=bpy.props.EnumProperty(name ="Obj Type",items=item_type_lst)
 bpy.types.Scene.myEnumitem_obj=bpy.props.EnumProperty(name ="Object",items=item_type_obj)
@@ -273,10 +264,10 @@ if __name__=='__main__':
     bpy.utils.register_module(__name__)
  
 if __name__ == "__main__":
-    m = Map2D()
-    m.perform(5)
+    
     pathTexture = 'C:/Users/User/Documents/GitHub/CityGenerator/Texture/gratteciel.jpg'
-    myObj = bpy.ops.mesh.primitive_cube_add(location=(0,0,0))
+    bpy.ops.mesh.primitive_cube_add(location=(0,0,0))
+    myObj = bpy.context.object
     run(myObj, pathTexture)
 	
 	
