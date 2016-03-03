@@ -197,21 +197,24 @@ class Droite:
         return self.p1.norme(self.p2)
     
     def intersect(self,d):
-        """nb=((d.p2.x-d.p1.x)*(self.p2.y-self.p1.y)-(self.p2.x-self.p1.x)*(d.p2.y-d.p1.y))
-        if nb==0:
-            return False;
-        u=((self.p2.x-self.p1.x)*(d.p1.y-self.p1.y)-(d.p1.x-self.p1.x)*(self.p2.y-self.p1.y))/nb
-        
-        if u<0 or u>1:
-            print
+    
+        if self.a==d.a:
             return False
-        p = Point()
-        p.x=d.p1.x+u*(d.p2.x-d.p1.x)
-        p.y=d.p1.y+u*(d.p2.y-d.p1.y)
-        return p"""
+        x=-(self.d-d.d)/(self.a-d.a)
+        y=self.a*x+self.d
+        p=Point(x,y,0)
         
-        """A = matrix([[self.p1.x,self.p1.y],[self.p2.x,self.p2.y]]
-        A = matrix([[self.p1.x,self.p1.y],[self.p2.x,self.p2.y]]"""
+        return p
+    
+    def ccw(self,A,B,C):
+        return (C.y-A.y)*(B.x-A.x) > (B.y-A.y) *(C.x-A.x)
+    
+    def intersect2(self,d):
+        if self.a==d.a:
+            return False
+        inter = self.ccw(self.p1,d.p1,d.p2)!=self.ccw(self.p2,d.p1,d.p2) and self.ccw(self.p1,self.p2,d.p1) != self.ccw(self.p1,self.p2,d.p2)
+        
+        return inter
     
     def milieu(self):
        
@@ -289,11 +292,6 @@ class Plate:
             newPlate.points[0]=p[1]
             newPlate.points[2]=p[3]
             
-            """road.points[1]=p[0]
-            road.points[3]=p[2]
-            road.points[0]=p[1]
-            road.points[2]=p[3]"""
-            
             for i in range(0,4):
                 road.points[i]=p[i]
         else:
@@ -313,6 +311,58 @@ class Plate:
         newPlate.sens=self.sens
         
         return [[self,newPlate],[road]]
+    
+    def divide2(self,espace):
+        newPlate = Plate()
+        newPlate.points = self.points[:]
+        p = []
+        dr = []
+        rp=[]
+        if self.aire()<10:
+            print("test aire")
+            return [self]
+        
+        if self.sens:
+            dr.append(Droite(self.points[0].cp(),self.points[1].cp()))
+            dr.append(Droite(self.points[2].cp(),self.points[3].cp()))
+        else:
+            dr.append(Droite(self.points[0].cp(True),self.points[2].cp(True)))
+            dr.append(Droite(self.points[1].cp(True),self.points[3].cp(True)))
+        
+        for i in range(0,2):
+            r = Point(random.uniform(dr[i].p1.x+espace,dr[i].p2.x-(espace*2)),0,0)
+            r.y=dr[i].getY(r.x)
+            rp.append(r)
+        
+        for i in range(0,2):
+            j=1
+            if i==1: j=0
+            
+            if dr[i].norme()<espace*2 or dr[j].norme()<espace*2 :
+                print("to small")
+                return [[self],False]
+            
+            p.append(rp[i].cp(not self.sens))
+            p.append(rp[i].cp(not self.sens))
+            
+        if self.sens:
+            
+            self.points[1]=p[0]
+            self.points[3]=p[2]
+            newPlate.points[0]=p[1]
+            newPlate.points[2]=p[3]
+            
+        else:
+            self.points[2]=p[0]
+            self.points[3]=p[2]
+            newPlate.points[0]=p[1]
+            newPlate.points[1]=p[3]
+            
+        self.sens=not self.sens
+        newPlate.sens=self.sens
+        
+        return [self,newPlate]
+        
     
     def draw(self):
         bpy.ops.mesh.primitive_plane_add(location=(0,0,0))
@@ -366,25 +416,39 @@ class Plate:
         p=d5.intersect(d6)
         if p!=False:
             
-            #p.z+=.05
             size=.1
-            pas=.1
-            bpy.ops.mesh.primitive_plane_add(location=p.tuple(),radius=1)
+            pas=.2
+            enter=False
+            
+            bpy.ops.mesh.primitive_plane_add(location=p.tuple(),radius=size)
             obj=bpy.context.object
-            obj.scale[0]=size
-            obj.scale[1]=size
+            
             r=random.randint(0,3)
             angle = d[r].vector.angle2D()
-            obj.rotation_euler[2]=angle
             
-            #scale en x
+            
             plate.setPoints(obj)
-            while  not plate.intersect(self):
+            while self.inside(plate):
+                enter=True
                 size+=pas
-                obj.scale[0]=size
+                bpy.ops.object.delete(use_global=False)
+                bpy.ops.mesh.primitive_plane_add(location=p.tuple(),radius=size)
+                obj=bpy.context.object
                 plate.setPoints(obj)
             
-            size-=pas
+            if enter:
+                r=random.uniform(1.0,4.0)
+                size-=pas
+                p.z+=size*r
+                bpy.ops.object.delete(use_global=False)
+                
+                bpy.ops.mesh.primitive_cube_add(location=p.tuple(),radius=size)
+                obj=bpy.context.object
+                
+                obj.rotation_euler[2]=angle
+                
+                obj.scale[2]=r
+                
             
                 
             
@@ -396,29 +460,34 @@ class Plate:
             self.points[i].x=p.x
             self.points[i].y=p.y
             self.points[i].z=p.z
-            print("point",self.points[i].x,self.points[i].y,self.points[i].z)
             
-    def intersect(self,p):
-        d=[]
-        d2=[]
-        
-        d.append(Droite(self.points[2],self.points[0]))
-        d.append(Droite(self.points[2],self.points[3]))
-        d.append(Droite(self.points[3],self.points[1]))
-        d.append(Droite(self.points[0],self.points[1]))
-        
-        d2.append(Droite(p.points[2],p.points[0]))
-        d2.append(Droite(p.points[2],p.points[3]))
-        d2.append(Droite(p.points[3],p.points[1]))
-        d2.append(Droite(p.points[0],p.points[1])) 
-        
+    def inside(self,p):
         
         for i in range(0,4):
-            for j in range(0,4):
-                if d[i].intersect(d2[j])==False:
-                    print("intersect")
-                    return True
-        return False
+            b = self.point_inside_polygon(p.points[i].x,p.points[i].y)
+            if not b:
+                return False
+        return True
+        
+    
+    def point_inside_polygon(self,x,y):
+        points = self.points[:]
+        points = [points[0],points[2],points[3],points[1]]
+        n = len(points)
+        inside =False
+
+        p1x,p1y = points[0].x,points[0].y
+        for i in range(n+1):
+            p2x,p2y = points[i%n].x,points[i%n].y
+            if y > min(p1y,p2y):
+                if y <= max(p1y,p2y):
+                    if x <= max(p1x,p2x):
+                        if p1y != p2y:
+                            xinters = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
+                        if p1x == p2x or x <= xinters:
+                            inside = not inside
+            p1x,p1y = p2x,p2y
+        return inside
 
 class Map2D:
     
@@ -426,7 +495,7 @@ class Map2D:
         self.plates = []
         self.road = []
         
-    def perform(self, n=1):
+    def perform(self, n=1, m=1):
         self.plates = [Plate(Point(0,0,0),Point(24,0,0),Point(0,22,0),Point(26,21,0))]
         for i in range(0,n):
             newPlates = []
@@ -436,22 +505,32 @@ class Map2D:
                 if res[1]!=False:
                     self.road+=res[1]
             self.plates=newPlates
+            
+        for i in range(0,m):
+            newPlates = []
+            for j in range(0,len(self.plates)):
+                res = self.plates[j].divide2(.2)
+                newPlates+=res
+            self.plates=newPlates
+            
         for i in range(0,len(self.plates)):
             self.plates[i].draw()
         for i in range(0,len(self.road)):
             self.road[i].draw()
             
     def to3D(self):
+            
         for p in self.plates:
             p.to3D()
         
 
 print('///////////')
-"""m = Map2D()
-m.perform(0)
 
-m.to3D()"""
+m = Map2D()
+m.perform(5,8)
 
-A=matrix([[3,-2],[1,1]])
+m.to3D()
+
+
 
 
