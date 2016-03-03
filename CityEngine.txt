@@ -9,6 +9,7 @@ import random
 import functools
 from math import *
 import os
+from numpy import *
 
 #Création textures
 
@@ -88,7 +89,10 @@ class Vector:
         return Vector(self.x/c, self.y/c,self.z/c)
     
     def angle2D(self):
-        nb = self.y/self.x
+        if self.x==0:
+           nb=0
+        else :
+            nb = self.y/self.x
         if nb<0: return (atan(nb))+3.14159
         else: return (atan(nb))
         
@@ -145,18 +149,21 @@ class Cercle:
         
 class Droite:
     
-    def __init__(self,p1,p2):
+    def __init__(self,p1=False,p2=False):
         
         self.p1=p1
         self.p2=p2
-        if self.p1.x>self.p2.x:
-            self.p1,self.p2=self.p2,self.p1
-        self.vector = Vector.fromPoint(self.p1,self.p2)
-        if self.p1.x-self.p2.x==0:
-            self.a=0
-        else :
-            self.a=(self.p1.y-self.p2.y)/(self.p1.x-self.p2.x)
-        self.d=self.p1.y-self.a*self.p1.x
+        self.droit=False
+        if p1!=False and p2!=False:
+            if self.p1.x>self.p2.x:
+                self.p1,self.p2=self.p2,self.p1
+            self.vector = Vector.fromPoint(self.p1,self.p2)
+            if self.p1.x-self.p2.x==0:
+                self.a=0
+                self.droit=True
+            else :
+                self.a=(self.p1.y-self.p2.y)/(self.p1.x-self.p2.x)
+            self.d=self.p1.y-self.a*self.p1.x
         
         
     def getY(self,x):
@@ -179,6 +186,8 @@ class Droite:
         Z=p.x*-X+p.y*-Y
         
         proj=Point()
+        if (X+Y*self.a)==0:
+            proj.x=0
         proj.x=-(self.d*Y+Z)/(X+Y*self.a)
         proj.y=self.a*proj.x+self.d
         
@@ -188,19 +197,34 @@ class Droite:
         return self.p1.norme(self.p2)
     
     def intersect(self,d):
-        u=((self.p2.x-self.p1.x)*(d.p1.y-self.p1.y)-(d.p1.x-self.p1.x)*(self.p2.y-self.p1.y))/((d.p2.x-d.p1.x)*(self.p2.y-self.p1.y)-(self.p2.x-self.p1.x)*(d.p2.y-d.p1.y))
+        """nb=((d.p2.x-d.p1.x)*(self.p2.y-self.p1.y)-(self.p2.x-self.p1.x)*(d.p2.y-d.p1.y))
+        if nb==0:
+            return False;
+        u=((self.p2.x-self.p1.x)*(d.p1.y-self.p1.y)-(d.p1.x-self.p1.x)*(self.p2.y-self.p1.y))/nb
         
         if u<0 or u>1:
+            print
             return False
         p = Point()
         p.x=d.p1.x+u*(d.p2.x-d.p1.x)
         p.y=d.p1.y+u*(d.p2.y-d.p1.y)
-        return p
+        return p"""
+        
+        """A = matrix([[self.p1.x,self.p1.y],[self.p2.x,self.p2.y]]
+        A = matrix([[self.p1.x,self.p1.y],[self.p2.x,self.p2.y]]"""
     
     def milieu(self):
-        x = self.p1.x+(abs(self.p1.x-self.p2.x)/2)
-        y = self.a*x+self.d
-        
+       
+        if self.droit:
+            x=self.p1.x
+            if self.p1.y<self.p2.y:
+                y=self.p1.y+(abs(self.p1.y-self.p2.y)/2)
+            else :
+                y=self.p2.y+(abs(self.p1.y-self.p2.y)/2)
+            
+        else:
+            x = self.p1.x+(abs(self.p1.x-self.p2.x)/2)
+            y = self.a*x+self.d
         return Point(x,y,0)
     
 
@@ -327,29 +351,74 @@ class Plate:
         return a1+a2+a3+a4
     
     def to3D(self):
-        d1 = Droite(self.points[2],self.points[0])
-        d2 = Droite(self.points[2],self.points[3])
-        d3 = Droite(self.points[3],self.points[1])
-        d4 = Droite(self.points[0],self.points[1])
-        p1=d1.milieu()
-        p2=d2.milieu()
-        p3=d3.milieu()
-        p4=d4.milieu()
+        d=[]
+        plate=Plate()
+        d.append(Droite(self.points[2],self.points[0]))
+        d.append(Droite(self.points[2],self.points[3]))
+        d.append(Droite(self.points[3],self.points[1]))
+        d.append(Droite(self.points[0],self.points[1]))
+        p1=d[0].milieu()
+        p2=d[1].milieu()
+        p3=d[2].milieu()
+        p4=d[3].milieu()
         d5 = Droite(p1,p3)
         d6 = Droite(p2,p4)
         p=d5.intersect(d6)
         if p!=False:
             
-            p.z+=.05
-            bpy.ops.mesh.primitive_cube_add(radius=.3,location=p.tuple())
+            #p.z+=.05
+            size=.1
+            pas=.1
+            bpy.ops.mesh.primitive_plane_add(location=p.tuple(),radius=1)
             obj=bpy.context.object
-            
-            angle = d4.vector.angle2D()
+            obj.scale[0]=size
+            obj.scale[1]=size
+            r=random.randint(0,3)
+            angle = d[r].vector.angle2D()
             obj.rotation_euler[2]=angle
             
+            #scale en x
+            plate.setPoints(obj)
+            while  not plate.intersect(self):
+                size+=pas
+                obj.scale[0]=size
+                plate.setPoints(obj)
+            
+            size-=pas
+            
+                
             
             
+    def setPoints(self,obj):
+        for i in range(0,4):
+            p=obj.data.vertices[i].co
+            p=obj.matrix_world*p
+            self.points[i].x=p.x
+            self.points[i].y=p.y
+            self.points[i].z=p.z
+            print("point",self.points[i].x,self.points[i].y,self.points[i].z)
             
+    def intersect(self,p):
+        d=[]
+        d2=[]
+        
+        d.append(Droite(self.points[2],self.points[0]))
+        d.append(Droite(self.points[2],self.points[3]))
+        d.append(Droite(self.points[3],self.points[1]))
+        d.append(Droite(self.points[0],self.points[1]))
+        
+        d2.append(Droite(p.points[2],p.points[0]))
+        d2.append(Droite(p.points[2],p.points[3]))
+        d2.append(Droite(p.points[3],p.points[1]))
+        d2.append(Droite(p.points[0],p.points[1])) 
+        
+        
+        for i in range(0,4):
+            for j in range(0,4):
+                if d[i].intersect(d2[j])==False:
+                    print("intersect")
+                    return True
+        return False
 
 class Map2D:
     
@@ -358,7 +427,7 @@ class Map2D:
         self.road = []
         
     def perform(self, n=1):
-        self.plates = [Plate(Point(0,0,0),Point(20,0,0),Point(0,20,0),Point(20,20,0))]
+        self.plates = [Plate(Point(0,0,0),Point(24,0,0),Point(0,22,0),Point(26,21,0))]
         for i in range(0,n):
             newPlates = []
             for j in range(0,len(self.plates)):
@@ -378,14 +447,11 @@ class Map2D:
         
 
 print('///////////')
-m = Map2D()
-m.perform(5)
+"""m = Map2D()
+m.perform(0)
 
-m.to3D()
+m.to3D()"""
 
-
-
-
-#setMaterial(obj,mat)
+A=matrix([[3,-2],[1,1]])
 
 
